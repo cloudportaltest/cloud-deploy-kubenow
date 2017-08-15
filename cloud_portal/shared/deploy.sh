@@ -98,7 +98,7 @@ ansible-playbook -i "$ansible_inventory_file" \
 if [ -n "$TF_VAR_hostpath_vol_size" ]
 then
 
-  # deploy local host path (if single node kvm)
+  # deploy local host path persistent volume (if single node kvm)
   ansible-playbook -i "$ansible_inventory_file" \
                    --key-file "$PRIVATE_KEY" \
                    -e "vol_size=$TF_VAR_hostpath_vol_size" \
@@ -108,6 +108,18 @@ then
   STORAGE_CLASS="storageClassName=manual"
 
 elif [ -n "$TF_VAR_nfs_vol_size" ]
+then
+
+  # deploy nfs persistent volume
+  ansible-playbook -i "$ansible_inventory_file" \
+                   --key-file "$PRIVATE_KEY" \
+                   -e "nfs_server=$TF_VAR_nfs_server" \
+                   -e "nfs_vol_size=$TF_VAR_nfs_vol_size" \
+                   -e "nfs_path=$TF_VAR_nfs_path" \
+                   "$PORTAL_APP_REPO_FOLDER/KubeNow/playbooks/install-shared-vol-nfs.yml"
+
+  STORAGE_CLASS="nothing=nothing"
+elif [ -n "$TF_VAR_master_extra_disk_size" ]
 then
 
   # deploy local host path (if single node kvm)
@@ -159,7 +171,9 @@ ansible-playbook -i "$ansible_inventory_file" \
                  "$PORTAL_APP_REPO_FOLDER/playbooks/luigi/main.yml"
 
 # deploy kubernetes-dashboard
-dashboard_auth=$(htpasswd -nb "$TF_VAR_dashboard_username" "$TF_VAR_dashboard_password")
+# dashboard_auth=$(htpasswd -nb "$TF_VAR_dashboard_username" "$TF_VAR_dashboard_password")
+hashed_password=$(openssl passwd -apr1 "$TF_VAR_dashboard_password")
+dashboard_auth=$(printf "$TF_VAR_dashboard_username":"$hashed_password")
 dashboard_auth_base64=$(echo $dashboard_auth | base64)
 ansible-playbook -i "$ansible_inventory_file" \
                  --key-file "$PRIVATE_KEY" \
